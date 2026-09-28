@@ -15,9 +15,9 @@ const GoogleIcon = () => (
 );
 
 const bootLines = (accountLine) => [
-  { text: '$ session --check', mono: true },
+  { text: '$ session --check', tone: 'mono' },
   { text: 'no active admin session', tone: 'muted' },
-  { text: '$ auth google --workspace portfolio-cms', mono: true },
+  { text: '$ auth google --workspace portfolio-cms', tone: 'mono' },
   accountLine
     ? { text: accountLine, tone: 'ok' }
     : { text: 'waiting for sign-in…', tone: 'muted', caret: true },
@@ -30,14 +30,11 @@ const AdminLogin = () => {
   const navigate = useNavigate();
 
   const rootRef = useRef(null);
-  const stageRef = useRef(null);
-  const panelRef = useRef(null);
   const terminalRef = useRef(null);
   const linesRef = useRef(null);
+  const panelRef = useRef(null);
 
-  // ---------------------------------------------------------
-  // AUTH
-  // ---------------------------------------------------------
+  /* Auth flow */
   useEffect(() => {
     let mounted = true;
 
@@ -76,16 +73,53 @@ const AdminLogin = () => {
     };
   }, [navigate]);
 
-  // ---------------------------------------------------------
-  // GSAP — entrance choreography
-  // ---------------------------------------------------------
+  /* ---------- CUSTOM CURSOR ---------- */
+  useLayoutEffect(() => {
+    if (checking) return;
+    const fine = window.matchMedia('(hover:hover) and (pointer:fine)').matches;
+    if (!fine) return;
+
+    const dot = document.querySelector('.cursor-dot');
+    const ring = document.querySelector('.cursor-ring');
+    if (!dot || !ring) return;
+
+    gsap.set([dot, ring], { xPercent: -50, yPercent: -50 });
+
+    const dotX = gsap.quickTo(dot, 'x', { duration: 0.12, ease: 'power3' });
+    const dotY = gsap.quickTo(dot, 'y', { duration: 0.12, ease: 'power3' });
+    const ringX = gsap.quickTo(ring, 'x', { duration: 0.5, ease: 'power3' });
+    const ringY = gsap.quickTo(ring, 'y', { duration: 0.5, ease: 'power3' });
+
+    const onMove = (e) => {
+      dotX(e.clientX); dotY(e.clientY);
+      ringX(e.clientX); ringY(e.clientY);
+    };
+    window.addEventListener('mousemove', onMove);
+
+    const targets = document.querySelectorAll('.cms-google-btn, .cms-login-back, .cms-login-brand, a, button');
+    const onEnter = () => ring.classList.add('grow');
+    const onLeave = () => ring.classList.remove('grow');
+    targets.forEach((el) => {
+      el.addEventListener('mouseenter', onEnter);
+      el.addEventListener('mouseleave', onLeave);
+    });
+
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      targets.forEach((el) => {
+        el.removeEventListener('mouseenter', onEnter);
+        el.removeEventListener('mouseleave', onLeave);
+      });
+    };
+  }, [checking]);
+
+  /* GSAP entrance */
   useLayoutEffect(() => {
     if (checking) return;
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduced) return;
 
     const ctx = gsap.context(() => {
-      // Terminal window scale + rotate in
       if (terminalRef.current) {
         gsap.from(terminalRef.current, {
           y: 40,
@@ -97,7 +131,6 @@ const AdminLogin = () => {
         });
       }
 
-      // Terminal lines typed in, one after the other
       if (linesRef.current) {
         const lines = linesRef.current.querySelectorAll('.cms-terminal-line');
         gsap.from(lines, {
@@ -110,7 +143,6 @@ const AdminLogin = () => {
         });
       }
 
-      // Footer note under terminal
       gsap.from('.cms-login-stage-foot', {
         y: 16,
         opacity: 0,
@@ -119,7 +151,6 @@ const AdminLogin = () => {
         ease: 'expo.out',
       });
 
-      // Right panel — brand + heading + button
       const panelChildren = panelRef.current?.querySelectorAll(
         '.cms-login-brand, h1, p, .cms-google-btn, .cms-error, .cms-login-back',
       );
@@ -134,7 +165,6 @@ const AdminLogin = () => {
         });
       }
 
-      // Subtle ambient pulse on the terminal caret
       const caret = terminalRef.current?.querySelector('.cms-caret');
       if (caret) {
         gsap.to(caret, {
@@ -150,7 +180,7 @@ const AdminLogin = () => {
     return () => ctx.revert();
   }, [checking]);
 
-  // Animate error message when it appears
+  /* Error animation */
   useLayoutEffect(() => {
     if (!error) return;
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -164,7 +194,7 @@ const AdminLogin = () => {
     );
   }, [error]);
 
-  // Button micro-interaction via GSAP on top of CSS
+  /* Button hover scale */
   useLayoutEffect(() => {
     if (checking) return;
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -172,10 +202,8 @@ const AdminLogin = () => {
     const btn = panelRef.current?.querySelector('.cms-google-btn');
     if (!btn) return;
 
-    const onEnter = () =>
-      gsap.to(btn, { scale: 1.015, duration: 0.25, ease: 'power2.out' });
-    const onLeave = () =>
-      gsap.to(btn, { scale: 1, duration: 0.35, ease: 'expo.out' });
+    const onEnter = () => gsap.to(btn, { scale: 1.015, duration: 0.25, ease: 'power2.out' });
+    const onLeave = () => gsap.to(btn, { scale: 1, duration: 0.35, ease: 'expo.out' });
 
     btn.addEventListener('mouseenter', onEnter);
     btn.addEventListener('mouseleave', onLeave);
@@ -219,12 +247,11 @@ const AdminLogin = () => {
     }
   };
 
-  // ---------------------------------------------------------
-  // LOADING STATE
-  // ---------------------------------------------------------
   if (checking) {
     return (
       <main className="cms cms-login" ref={rootRef}>
+        <div className="cursor-dot" />
+        <div className="cursor-ring" />
         <div />
         <div className="cms-login-panel">
           <div className="cms-login-loading" aria-live="polite">
@@ -240,7 +267,10 @@ const AdminLogin = () => {
 
   return (
     <main className="cms cms-login" ref={rootRef}>
-      <section className="cms-login-stage" aria-hidden="true" ref={stageRef}>
+      <div className="cursor-dot" />
+      <div className="cursor-ring" />
+
+      <section className="cms-login-stage" aria-hidden="true">
         <div className="cms-terminal" ref={terminalRef}>
           <div className="cms-terminal-bar">
             <div className="cms-winbar">
@@ -250,7 +280,7 @@ const AdminLogin = () => {
             </div>
             <span className="cms-mono">admin@portfolio-cms</span>
           </div>
-          <div className="cms-terminal-body cms-mono" ref={linesRef}>
+          <div className="cms-terminal-body" ref={linesRef}>
             {lines.map((line, index) => (
               <div
                 key={index}

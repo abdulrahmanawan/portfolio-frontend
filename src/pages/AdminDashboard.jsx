@@ -5,20 +5,27 @@ import gsap from 'gsap';
 import API from '../services/api';
 import { auth } from '../config/firebase';
 
+/* Clean tab list — no duplicates */
 const TABS = [
   { value: 'projects',     label: 'Projects',     short: 'Projects', icon: 'projects'     },
   { value: 'certificates', label: 'Certificates', short: 'Certs',    icon: 'certificates' },
   { value: 'skills',       label: 'Skills',       short: 'Skills',   icon: 'skills'       },
+  { value: 'experience',   label: 'Experience',   short: 'Work',     icon: 'experience'   },
   { value: 'social',       label: 'Social links', short: 'Social',   icon: 'social'       },
   { value: 'resume',       label: 'Resume',       short: 'Resume',   icon: 'resume'       },
-  { value: 'experience',   label: 'Experience',   short: 'Work',     icon: 'experience'   },
   { value: 'contact',      label: 'Contact',      short: 'Contact',  icon: 'contact'      },
 ];
 
 const Icon = ({ name }) => {
   const common = {
-    width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none',
-    stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round',
+    width: 18,
+    height: 18,
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 1.8,
+    strokeLinecap: 'round',
+    strokeLinejoin: 'round',
     'aria-hidden': true,
   };
   switch (name) {
@@ -59,6 +66,7 @@ const iconForPlatform = (platform = '') => {
   if (value.includes('linkedin')) return 'in';
   if (value.includes('instagram')) return 'IG';
   if (value.includes('whatsapp')) return 'WA';
+  if (value.includes('twitter') || value.includes('x.com')) return 'X';
   return '↗';
 };
 
@@ -92,7 +100,7 @@ const AdminDashboard = () => {
   const navbarRef = useRef(null);
   const bottomNavRef = useRef(null);
 
-  // ---------------- Auth ----------------
+  /* ---------- Auth ---------- */
   useEffect(() => {
     let mounted = true;
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -120,7 +128,6 @@ const AdminDashboard = () => {
     return () => { mounted = false; unsubscribe(); };
   }, [navigate]);
 
-  // ---------------- Data ----------------
   const fetchAllData = async () => {
     setLoading(true);
     setMessage({ type: '', text: '' });
@@ -136,7 +143,8 @@ const AdminDashboard = () => {
     ]);
 
     const [
-      projectsRes, certificatesRes, skillsRes, socialRes, resumeRes, contactRes, experienceRes,
+      projectsRes, certificatesRes, skillsRes, socialRes,
+      resumeRes, contactRes, experienceRes,
     ] = results;
 
     if (projectsRes.status === 'fulfilled') setProjects(Array.isArray(projectsRes.value.data) ? projectsRes.value.data : []);
@@ -173,25 +181,81 @@ const AdminDashboard = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, resume, contact]);
 
-  // ---------------- GSAP ----------------
+  /* ---------- CUSTOM CURSOR ---------- */
+  useLayoutEffect(() => {
+    if (loading) return;
+    const fine = window.matchMedia('(hover:hover) and (pointer:fine)').matches;
+    if (!fine) return;
+
+    const dot = document.querySelector('.cms .cursor-dot');
+    const ring = document.querySelector('.cms .cursor-ring');
+    if (!dot || !ring) return;
+
+    gsap.set([dot, ring], { xPercent: -50, yPercent: -50, opacity: 1 });
+
+    const dotX = gsap.quickTo(dot, 'x', { duration: 0.12, ease: 'power3' });
+    const dotY = gsap.quickTo(dot, 'y', { duration: 0.12, ease: 'power3' });
+    const ringX = gsap.quickTo(ring, 'x', { duration: 0.5, ease: 'power3' });
+    const ringY = gsap.quickTo(ring, 'y', { duration: 0.5, ease: 'power3' });
+
+    const onMove = (e) => {
+      dotX(e.clientX); dotY(e.clientY);
+      ringX(e.clientX); ringY(e.clientY);
+    };
+    window.addEventListener('mousemove', onMove);
+
+    const targets = document.querySelectorAll(
+      '.cms a, .cms button, .cms .cms-panel, .cms .cms-table tbody tr, .cms input, .cms textarea',
+    );
+    const onEnter = () => ring.classList.add('grow');
+    const onLeave = () => ring.classList.remove('grow');
+    targets.forEach((el) => {
+      el.addEventListener('mouseenter', onEnter);
+      el.addEventListener('mouseleave', onLeave);
+    });
+
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      targets.forEach((el) => {
+        el.removeEventListener('mouseenter', onEnter);
+        el.removeEventListener('mouseleave', onLeave);
+      });
+    };
+  }, [loading]);
+
+  /* ---------- GSAP — entrance ---------- */
   useLayoutEffect(() => {
     if (loading) return;
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduced) return;
 
     const ctx = gsap.context(() => {
-      if (navbarRef.current) gsap.from(navbarRef.current, { y: -22, opacity: 0, duration: 0.6, ease: 'expo.out' });
-      gsap.from('.cms-navbar-tab', { y: -10, opacity: 0, duration: 0.5, stagger: 0.05, ease: 'expo.out', delay: 0.15 });
-      gsap.from('.cms-navbar-right > *', { y: -10, opacity: 0, duration: 0.5, stagger: 0.06, ease: 'expo.out', delay: 0.2 });
-      if (bottomNavRef.current) gsap.from(bottomNavRef.current, { y: 40, opacity: 0, duration: 0.6, ease: 'expo.out', delay: 0.1 });
+      if (navbarRef.current) {
+        gsap.from(navbarRef.current, { y: -22, opacity: 0, duration: 0.6, ease: 'expo.out' });
+      }
+      gsap.from('.cms-navbar-tab', {
+        y: -10, opacity: 0, duration: 0.5, stagger: 0.05, ease: 'expo.out', delay: 0.15,
+      });
+      gsap.from('.cms-navbar-right > *', {
+        y: -10, opacity: 0, duration: 0.5, stagger: 0.06, ease: 'expo.out', delay: 0.2,
+      });
+      if (bottomNavRef.current) {
+        gsap.from(bottomNavRef.current, { y: 40, opacity: 0, duration: 0.6, ease: 'expo.out', delay: 0.1 });
+      }
       if (bodyRef.current) {
-        gsap.from(bodyRef.current.querySelectorAll('.cms-file-head > *'), { y: 22, opacity: 0, duration: 0.6, stagger: 0.08, ease: 'expo.out', delay: 0.25 });
-        gsap.from(bodyRef.current.querySelectorAll('.cms-panel'), { y: 26, opacity: 0, duration: 0.7, stagger: 0.09, ease: 'expo.out', delay: 0.35 });
+        gsap.from(bodyRef.current.querySelectorAll('.cms-file-head > *'), {
+          y: 22, opacity: 0, duration: 0.6, stagger: 0.08, ease: 'expo.out', delay: 0.25,
+        });
+        gsap.from(bodyRef.current.querySelectorAll('.cms-panel'), {
+          y: 26, opacity: 0, duration: 0.7, stagger: 0.09, ease: 'expo.out', delay: 0.35,
+        });
       }
     }, rootRef);
+
     return () => ctx.revert();
   }, [loading]);
 
+  /* ---------- GSAP — tab transition ---------- */
   useLayoutEffect(() => {
     if (loading) return;
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -204,9 +268,11 @@ const AdminDashboard = () => {
       const formPanel = bodyRef.current?.querySelector('form.cms-panel');
       if (formPanel) gsap.fromTo(formPanel, { y: -14, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: 'expo.out' });
     }, bodyRef);
+
     return () => ctx.revert();
   }, [activeTab, loading]);
 
+  /* ---------- GSAP — alert ---------- */
   useLayoutEffect(() => {
     if (!message.text) return;
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -216,7 +282,7 @@ const AdminDashboard = () => {
     gsap.fromTo(el, { y: -8, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, ease: 'expo.out' });
   }, [message]);
 
-  // ---------------- CRUD ----------------
+  /* ---------- CRUD ---------- */
   const openForm = (type, initialData = {}) => {
     setMessage({ type: '', text: '' });
     setFormData({ ...emptyForms[type], ...initialData });
@@ -307,7 +373,7 @@ const AdminDashboard = () => {
     <tr><td colSpan={columns} className="cms-empty">{text}</td></tr>
   );
 
-  // ---------------- TABS ----------------
+  /* ---------- Tab bodies ---------- */
   const renderProjects = () => (
     <div>
       <div className="cms-file-head">
@@ -406,7 +472,7 @@ const AdminDashboard = () => {
   const renderSkills = () => (
     <div>
       <div className="cms-file-head">
-        <div><h1>Skills</h1><p>The animated bars shown under “How I work.”</p></div>
+        <div><h1>Skills</h1><p>Animated tech stack shown on the public site.</p></div>
         <button className="cms-btn cms-btn-primary" onClick={() => openForm('skills')}>+ Add skill</button>
       </div>
       {Object.keys(formData).length > 0 && (
@@ -414,48 +480,17 @@ const AdminDashboard = () => {
           <div className="cms-panel-head"><span>{formData.id ? 'Edit skill' : 'New skill'}</span></div>
           <div className="cms-panel-body">
             <div className="cms-field-grid">
-              <label>
-                <span>Skill name</span>
-                <input
-                  value={formData.name || ''}
-                  onChange={(e) => updateField('name', e.target.value)}
-                  placeholder="React.js"
-                  required
-                />
-              </label>
-              <label>
-                <span>Level (%)</span>
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={formData.level ?? 60}
-                  onChange={(e) => updateField('level', e.target.value)}
-                  placeholder="60"
-                  required
-                />
-              </label>
-              <label>
-                <span>Sort order</span>
-                <input
-                  type="number"
-                  value={formData.sort_order ?? 0}
-                  onChange={(e) => updateField('sort_order', e.target.value)}
-                  placeholder="0"
-                />
-              </label>
+              <label><span>Skill name</span><input value={formData.name || ''} onChange={(e) => updateField('name', e.target.value)} placeholder="React.js" required /></label>
+              <label><span>Level (%)</span><input type="number" min="0" max="100" value={formData.level ?? 60} onChange={(e) => updateField('level', e.target.value)} placeholder="60" required /></label>
+              <label><span>Sort order</span><input type="number" value={formData.sort_order ?? 0} onChange={(e) => updateField('sort_order', e.target.value)} placeholder="0" /></label>
             </div>
-            {/* Live preview of the bar */}
             <div className="cms-preview-skill">
               <div className="skill-head">
                 <span className="skill-name">{formData.name || 'Skill name'}</span>
                 <span className="skill-percent">{Math.max(0, Math.min(100, Number(formData.level) || 0))}%</span>
               </div>
               <div className="skill-bar">
-                <span
-                  className="skill-fill"
-                  style={{ width: `${Math.max(0, Math.min(100, Number(formData.level) || 0))}%` }}
-                />
+                <span className="skill-fill" style={{ width: `${Math.max(0, Math.min(100, Number(formData.level) || 0))}%` }} />
               </div>
             </div>
             {commonFormActions(formData.id, closeForm)}
@@ -476,6 +511,53 @@ const AdminDashboard = () => {
                   <td><div className="cms-row-actions">
                     <button className="cms-icon-btn" onClick={() => openForm('skills', s)}>Edit</button>
                     <button className="cms-icon-btn danger" onClick={() => handleDelete('skills', s.id)}>Delete</button>
+                  </div></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderExperience = () => (
+    <div>
+      <div className="cms-file-head">
+        <div><h1>Experience</h1><p>The timeline shown under “Where I&apos;ve worked.”</p></div>
+        <button className="cms-btn cms-btn-primary" onClick={() => openForm('experience')}>+ Add experience</button>
+      </div>
+      {Object.keys(formData).length > 0 && (
+        <form className="cms-panel" onSubmit={(e) => { e.preventDefault(); handleSubmit('experience', formData, formData.id); }}>
+          <div className="cms-panel-head"><span>{formData.id ? 'Edit experience' : 'New experience'}</span></div>
+          <div className="cms-panel-body">
+            <div className="cms-field-grid">
+              <label><span>Role title</span><input value={formData.role_title || ''} onChange={(e) => updateField('role_title', e.target.value)} required /></label>
+              <label><span>Company</span><input value={formData.company || ''} onChange={(e) => updateField('company', e.target.value)} /></label>
+              <label><span>Start date</span><input value={formData.start_date || ''} onChange={(e) => updateField('start_date', e.target.value)} placeholder="2025-01" /></label>
+              <label><span>End date</span><input value={formData.end_date || ''} onChange={(e) => updateField('end_date', e.target.value)} placeholder="Present" /></label>
+              <label><span>Type</span><input value={formData.type || ''} onChange={(e) => updateField('type', e.target.value)} placeholder="Internship / Full-time" /></label>
+              <label className="cms-field-full"><span>Description</span><textarea rows="4" value={formData.description || ''} onChange={(e) => updateField('description', e.target.value)} /></label>
+            </div>
+            {commonFormActions(formData.id, closeForm)}
+          </div>
+        </form>
+      )}
+      <div className="cms-panel">
+        <div className="cms-panel-head"><span>{experience.length} entr{experience.length === 1 ? 'y' : 'ies'}</span></div>
+        <div className="cms-table-wrap">
+          <table className="cms-table">
+            <thead><tr><th>Role</th><th>Company</th><th>Period</th><th>Type</th><th></th></tr></thead>
+            <tbody>
+              {experience.length === 0 ? renderEmptyRow(5, 'No experience entries yet.') : experience.map((entry) => (
+                <tr key={entry.id}>
+                  <td><strong>{entry.role_title}</strong><small>{entry.description || 'No description'}</small></td>
+                  <td>{entry.company || '—'}</td>
+                  <td>{entry.start_date || '—'} — {entry.end_date || 'Present'}</td>
+                  <td><span className="cms-chip">{entry.type || 'General'}</span></td>
+                  <td><div className="cms-row-actions">
+                    <button className="cms-icon-btn" onClick={() => openForm('experience', entry)}>Edit</button>
+                    <button className="cms-icon-btn danger" onClick={() => handleDelete('experience', entry.id)}>Delete</button>
                   </div></td>
                 </tr>
               ))}
@@ -549,53 +631,6 @@ const AdminDashboard = () => {
     </div>
   );
 
-  const renderExperience = () => (
-    <div>
-      <div className="cms-file-head">
-        <div><h1>Experience</h1><p>The timeline shown under “Where I&apos;ve worked.”</p></div>
-        <button className="cms-btn cms-btn-primary" onClick={() => openForm('experience')}>+ Add experience</button>
-      </div>
-      {Object.keys(formData).length > 0 && (
-        <form className="cms-panel" onSubmit={(e) => { e.preventDefault(); handleSubmit('experience', formData, formData.id); }}>
-          <div className="cms-panel-head"><span>{formData.id ? 'Edit experience' : 'New experience'}</span></div>
-          <div className="cms-panel-body">
-            <div className="cms-field-grid">
-              <label><span>Role title</span><input value={formData.role_title || ''} onChange={(e) => updateField('role_title', e.target.value)} required /></label>
-              <label><span>Company</span><input value={formData.company || ''} onChange={(e) => updateField('company', e.target.value)} /></label>
-              <label><span>Start date</span><input value={formData.start_date || ''} onChange={(e) => updateField('start_date', e.target.value)} placeholder="2025-01" /></label>
-              <label><span>End date</span><input value={formData.end_date || ''} onChange={(e) => updateField('end_date', e.target.value)} placeholder="Present" /></label>
-              <label><span>Type</span><input value={formData.type || ''} onChange={(e) => updateField('type', e.target.value)} placeholder="Internship / Full-time" /></label>
-              <label className="cms-field-full"><span>Description</span><textarea rows="4" value={formData.description || ''} onChange={(e) => updateField('description', e.target.value)} /></label>
-            </div>
-            {commonFormActions(formData.id, closeForm)}
-          </div>
-        </form>
-      )}
-      <div className="cms-panel">
-        <div className="cms-panel-head"><span>{experience.length} entr{experience.length === 1 ? 'y' : 'ies'}</span></div>
-        <div className="cms-table-wrap">
-          <table className="cms-table">
-            <thead><tr><th>Role</th><th>Company</th><th>Period</th><th>Type</th><th></th></tr></thead>
-            <tbody>
-              {experience.length === 0 ? renderEmptyRow(5, 'No experience entries yet.') : experience.map((entry) => (
-                <tr key={entry.id}>
-                  <td><strong>{entry.role_title}</strong><small>{entry.description || 'No description'}</small></td>
-                  <td>{entry.company || '—'}</td>
-                  <td>{entry.start_date || '—'} — {entry.end_date || 'Present'}</td>
-                  <td><span className="cms-chip">{entry.type || 'General'}</span></td>
-                  <td><div className="cms-row-actions">
-                    <button className="cms-icon-btn" onClick={() => openForm('experience', entry)}>Edit</button>
-                    <button className="cms-icon-btn danger" onClick={() => handleDelete('experience', entry.id)}>Delete</button>
-                  </div></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-
   const renderContact = () => (
     <div>
       <div className="cms-file-head">
@@ -644,15 +679,17 @@ const AdminDashboard = () => {
     if (activeTab === 'projects') return renderProjects();
     if (activeTab === 'certificates') return renderCertificates();
     if (activeTab === 'skills') return renderSkills();
+    if (activeTab === 'experience') return renderExperience();
     if (activeTab === 'social') return renderSocial();
     if (activeTab === 'resume') return renderResume();
-    if (activeTab === 'experience') return renderExperience();
     return renderContact();
   };
 
   if (loading) {
     return (
       <main className="cms" style={{ minHeight: '100vh', display: 'grid', placeItems: 'center' }}>
+        <div className="cursor-dot" />
+        <div className="cursor-ring" />
         <div className="cms-login-loading">
           <span className="cms-spinner" />
           <span>Loading workspace…</span>
@@ -665,6 +702,11 @@ const AdminDashboard = () => {
 
   return (
     <div className="cms cms-app-v2" ref={rootRef}>
+      {/* CURSOR */}
+      <div className="cursor-dot" />
+      <div className="cursor-ring" />
+
+      {/* TOP NAVBAR */}
       <header className="cms-navbar" ref={navbarRef}>
         <div className="cms-navbar-inner">
           <a className="cms-navbar-brand" href="/" aria-label="Back to portfolio">
@@ -708,6 +750,7 @@ const AdminDashboard = () => {
         </div>
       </header>
 
+      {/* MAIN */}
       <main className="cms-main-v2" ref={bodyRef}>
         <div className="cms-container">
           {message.text && (
@@ -725,6 +768,7 @@ const AdminDashboard = () => {
         </div>
       </main>
 
+      {/* BOTTOM NAV — mobile only */}
       <nav className="cms-bottom-nav" ref={bottomNavRef} aria-label="Content sections">
         {TABS.map((tab) => {
           const isActive = activeTab === tab.value;
